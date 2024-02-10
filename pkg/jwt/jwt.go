@@ -3,10 +3,27 @@ package jwt
 import (
 	"strings"
 
+	"wasm-jwt-filter/pkg/rule"
+	"wasm-jwt-filter/pkg/types"
+
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/golang-jwt/jwt/v5"
-	"wasm-jwt-filter/pkg/types"
 )
+
+type ProvidersMap map[string]*JWTProvider
+
+type MapAccessFunc func(string) (string, bool)
+
+func (providersMap *ProvidersMap) GetValidateFunc(path string, accessHeader MapAccessFunc, accessQueryParam MapAccessFunc) rule.ValidateFunc {
+	return func(name string) (bool, error) {
+		provider, ok := (*providersMap)[name]
+		if !ok {
+			return false, types.ErrorInvalidConfig
+		}
+
+		return provider.Validate(path, accessHeader, accessQueryParam)
+	}
+}
 
 type JWTProvider struct {
 	Name       string       `json:"name"`
@@ -15,7 +32,16 @@ type JWTProvider struct {
 	Validator  JWTValidator `json:"validate"`
 }
 
-type MapAccessFunc func(string) (string, error)
+func (provider *JWTProvider) Validate(path string, accessHeader MapAccessFunc, accessQueryParam MapAccessFunc) (bool, error) {
+	jwtString, err := provider.ExtractJWTString(accessHeader, accessQueryParam)
+	if err != nil && err == types.ErrorInvalidConfig {
+		return false, err
+	} else if err != nil {
+		return false, nil
+	}
+
+	return provider.Validator.ValidateRequirement(jwtString), nil
+}
 
 func (provider *JWTProvider) ExtractJWTString(accessHeader MapAccessFunc, accessQueryParam MapAccessFunc) (string, error) {
 	if provider.FromHeader != nil {
@@ -31,12 +57,8 @@ func (provider *JWTProvider) ExtractJWTString(accessHeader MapAccessFunc, access
 }
 
 func getJWTFromMap(accessMap MapAccessFunc, key string, prefix string) (string, error) {
-	value, err := accessMap(key)
-	if err != nil {
-		return "", err
-	}
-
-	if !strings.HasPrefix(value, prefix) {
+	value, ok := accessMap(key)
+	if !ok || !strings.HasPrefix(value, prefix) {
 		return "", types.ErrorIllegalArgument
 	}
 

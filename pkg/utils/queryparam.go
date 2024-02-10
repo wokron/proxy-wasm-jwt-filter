@@ -20,12 +20,15 @@ func GetQueryParamsFromPath(path string) map[string]string {
 
 	paramsString := path[index+1:]
 	for _, paramPair := range strings.Split(paramsString, "&") {
+		var paramKey, paramValue string
 		index := strings.Index(paramPair, "=")
 		if index < 0 {
-			index = len(paramPair) - 1
+			paramKey = paramPair
+			paramValue = ""
+		} else {
+			paramKey = paramPair[:index]
+			paramValue = paramPair[index+1:]
 		}
-		paramKey := paramPair[:index]
-		paramValue := paramPair[index+1:]
 		params[paramKey] = paramValue
 	}
 	return params

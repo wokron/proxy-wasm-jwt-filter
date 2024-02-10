@@ -2,6 +2,8 @@ package main
 
 import (
 	"wasm-jwt-filter/pkg/config"
+	"wasm-jwt-filter/pkg/jwt"
+	"wasm-jwt-filter/pkg/rule"
 	"wasm-jwt-filter/pkg/utils"
 
 	"github.com/tetratelabs/proxy-wasm-go-sdk/proxywasm"
@@ -40,7 +42,24 @@ func (ctx *pluginContext) OnPluginStart(pluginConfigurationSize int) types.OnPlu
 
 	ctx.config = config
 
+	counterIncrease := getCounterIncreaseFunc()
+	jwt.ValidateCounter.IncreaseFunc = counterIncrease
+	rule.RequestCounter.IncreaseFunc = counterIncrease
+
 	return types.OnPluginStartStatusOK
+}
+
+func getCounterIncreaseFunc() func(label string, offset uint64) {
+	counters := map[string]proxywasm.MetricCounter{}
+	return func(label string, offset uint64) {
+		counter, ok := counters[label]
+		if !ok {
+			counter = proxywasm.DefineCounterMetric(label)
+			counters[label] = counter
+			proxywasm.LogInfof("new metric label %s", label)
+		}
+		counter.Increment(offset)
+	}
 }
 
 func (ctx *pluginContext) NewHttpContext(contextID uint32) types.HttpContext {
@@ -90,7 +109,6 @@ func sendResponse(statusCode uint32, body string) {
 	err := proxywasm.SendHttpResponse(statusCode, nil, []byte(body), -1)
 	if err != nil {
 		proxywasm.LogErrorf("fail to send response, %v", err)
-		sendResponse(500, "Internal Server Error\n")
 		panic(err)
 	}
 }

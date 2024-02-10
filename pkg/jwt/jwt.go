@@ -1,14 +1,18 @@
 package jwt
 
 import (
+	"strconv"
 	"strings"
 
+	"wasm-jwt-filter/pkg/metrics"
 	"wasm-jwt-filter/pkg/rule"
 	"wasm-jwt-filter/pkg/types"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
+
+var ValidateCounter = metrics.NewCounter("envoy_wasm_jwt_filter_validate_counts")
 
 type ProvidersMap map[string]*JWTProvider
 
@@ -21,7 +25,7 @@ func (providersMap *ProvidersMap) GetValidateFunc(path string, accessHeader MapA
 			return false, types.ErrorInvalidConfig
 		}
 
-		return provider.Validate(path, accessHeader, accessQueryParam)
+		return provider.Validate(path, accessHeader, accessQueryParam), nil
 	}
 }
 
@@ -32,27 +36,26 @@ type JWTProvider struct {
 	Validator  JWTValidator `json:"validate"`
 }
 
-func (provider *JWTProvider) Validate(path string, accessHeader MapAccessFunc, accessQueryParam MapAccessFunc) (bool, error) {
+func (provider *JWTProvider) Validate(path string, accessHeader MapAccessFunc, accessQueryParam MapAccessFunc) bool {
 	jwtString, err := provider.ExtractJWTString(accessHeader, accessQueryParam)
-	if err != nil && err == types.ErrorInvalidConfig {
-		return false, err
-	} else if err != nil {
-		return false, nil
+	if err != nil {
+		ValidateCounter.AddTag("provider_name", provider.Name).AddTag("success", strconv.FormatBool(false)).Increase(1)
+		return false
 	}
 
-	return provider.Validator.ValidateRequirement(jwtString), nil
+	ok := provider.Validator.Validate(jwtString)
+	ValidateCounter.AddTag("provider_name", provider.Name).AddTag("success", strconv.FormatBool(ok)).Increase(1)
+	return ok
 }
 
 func (provider *JWTProvider) ExtractJWTString(accessHeader MapAccessFunc, accessQueryParam MapAccessFunc) (string, error) {
-	if provider.FromHeader != nil {
-		key, prefix := provider.FromHeader.GetKeyAndPrefix()
-		jwt, err := getJWTFromMap(accessHeader, key, prefix)
-		return jwt, err
-	} else if provider.FromParam != nil {
+	if provider.FromParam != nil {
 		jwt, err := getJWTFromMap(accessQueryParam, *provider.FromParam, "")
 		return jwt, err
 	} else {
-		return "", types.ErrorInvalidConfig
+		key, prefix := provider.FromHeader.GetKeyAndPrefix()
+		jwt, err := getJWTFromMap(accessHeader, key, prefix)
+		return jwt, err
 	}
 }
 
@@ -91,7 +94,7 @@ type JWTValidator struct {
 	JWK       string    `json:"jwk"`
 }
 
-func (requirement *JWTValidator) ValidateRequirement(jwtString string) bool {
+func (requirement *JWTValidator) Validate(jwtString string) bool {
 	var claims jwt.RegisteredClaims
 	token, err := jwt.ParseWithClaims(jwtString, &claims, func(t *jwt.Token) (interface{}, error) {
 		return []byte(requirement.JWK), nil

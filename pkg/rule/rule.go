@@ -1,9 +1,13 @@
 package rule
 
 import (
+	"strconv"
 	"strings"
+	"wasm-jwt-filter/pkg/metrics"
 	"wasm-jwt-filter/pkg/types"
 )
+
+var RequestCounter = metrics.NewCounter("envoy_wasm_jwt_filter_request_counts")
 
 type Rule struct {
 	Match    RouteMatch   `json:"match"`
@@ -14,22 +18,36 @@ type RuleList []Rule
 
 func (rules *RuleList) Validate(path string, validateByName ValidateFunc) (bool, error) {
 	require, err := rules.FindFirstMatchedRule(path)
-	if err != nil {
+	if err != nil && err == types.ErrorInvalidConfig {
+		return false, err
+	} else if err != nil {
+		RequestCounter.AddTag("permit", strconv.FormatBool(false)).Increase(1)
 		return false, nil
 	}
-	return require.Validate(validateByName)
+
+	ok, err := require.Validate(validateByName)
+	if err != nil {
+		RequestCounter.AddTag("permit", strconv.FormatBool(false)).Increase(1)
+		return false, nil
+	}
+
+	RequestCounter.AddTag("permit", strconv.FormatBool(ok)).Increase(1)
+	return ok, nil
 }
 
 func (rules *RuleList) FindFirstMatchedRule(path string) (*Requirement, error) {
-	for _, rule := range *rules {
+	for no, rule := range *rules {
 		ok, err := rule.Match.IsMatch(path)
 		if err != nil {
 			return nil, err
 		}
 		if ok {
+			RequestCounter.AddTag("match_no", strconv.Itoa(no))
 			return rule.Requires, nil
 		}
 	}
+	
+	RequestCounter.AddTag("match_no", strconv.Itoa(-1))
 	return nil, types.ErrorRulesNotMatch
 }
 

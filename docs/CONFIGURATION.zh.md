@@ -12,10 +12,10 @@
 ## Provider
 ```json
 {
-    "name": ...,
-    "from_header": {...},
-    "from_param": ...,
-    "validate": {...}
+    "name": "string",
+    "from_header": {},
+    "from_param": "string",
+    "validate": {}
 }
 ```
 - **name**: (string, REQUIRED) 验证方式的名称
@@ -26,8 +26,8 @@
 ## Header
 ```json
 {
-    "name": ...,
-    "value_prefix": ...
+    "name": "string",
+    "value_prefix": "string"
 }
 ```
 - **name**: (string, REQUIRED) 请求头的键
@@ -36,9 +36,9 @@
 ## Validate
 ```json
 {
-    "issuer": ...,
+    "issuer": "string",
     "audiences": [],
-    "jwk": ...
+    "jwk": "string"
 }
 ```
 - **issuer**: (string) 匹配指定的颁发者
@@ -48,8 +48,8 @@
 ## Rule
 ```json
 {
-    "match": {...},
-    "requires": {...}
+    "match": {},
+    "requires": {}
 }
 ```
 - **match**: (*Match*, REQUIRED) 设定匹配的路径
@@ -58,8 +58,8 @@
 ## Match
 ```json
 {
-    "prefix": ...,
-    "path": ...
+    "prefix": "string",
+    "path": "string"
 }
 ```
 - **prefix**: (string) 设定匹配所需的前缀
@@ -68,7 +68,7 @@
 ## Requires
 ```json
 {
-    "name": ...,
+    "name": "string",
     "requires_any": [],
     "requires_all": []
 }

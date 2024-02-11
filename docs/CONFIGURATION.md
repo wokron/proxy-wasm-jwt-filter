@@ -12,10 +12,10 @@
 ## Provider
 ```json
 {
-    "name": ...,
-    "from_header": {...},
-    "from_param": ...,
-    "validate": {...}
+    "name": "string",
+    "from_header": {},
+    "from_param": "string",
+    "validate": {}
 }
 ```
 - **name**: (string, REQUIRED) Name of the validation method
@@ -26,8 +26,8 @@
 ## Header
 ```json
 {
-    "name": ...,
-    "value_prefix": ...
+    "name": "string",
+    "value_prefix": "string"
 }
 ```
 - **name**: (string, REQUIRED) Key of the request header
@@ -36,9 +36,9 @@
 ## Validate
 ```json
 {
-    "issuer": ...,
+    "issuer": "string",
     "audiences": [],
-    "jwk": ...
+    "jwk": "string"
 }
 ```
 - **issuer**: (string) Match the specified issuer
@@ -48,8 +48,8 @@
 ## Rule
 ```json
 {
-    "match": {...},
-    "requires": {...}
+    "match": {},
+    "requires": {}
 }
 ```
 - **match**: (*Match*, REQUIRED) Specify the matching path
@@ -58,8 +58,8 @@
 ## Match
 ```json
 {
-    "prefix": ...,
-    "path": ...
+    "prefix": "string",
+    "path": "string"
 }
 ```
 - **prefix**: (string) Specify the required prefix for matching
@@ -68,7 +68,7 @@
 ## Requires
 ```json
 {
-    "name": ...,
+    "name": "string",
     "requires_any": [],
     "requires_all": []
 }
@@ -76,4 +76,3 @@
 - **name**: (string) Name of the validation method, indicating the method to be used for validation
 - **requires_any**: (repeated *Requires*) If any one of them is true, the validation condition is satisfied
 - **requires_all**: (repeated *Requires*) All of them must be true to satisfy the validation condition
-
